@@ -9,7 +9,8 @@ if __name__ == '__main__':
     if __package__ is None:
         import sys
         from os import path
-        sys.path.append( path.dirname( path.dirname( path.abspath(__file__) ) ) )
+
+        sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from agent.dnn_agent import DNNAgent
 
@@ -42,6 +43,7 @@ load = options['--load']
 
 date = datetime.now().strftime("%m%d-%H%M")
 
+
 def simulate():
     config = configs.get_config(env_name)
     parameters = config.parameters
@@ -53,7 +55,6 @@ def simulate():
 
     summary_path = os.path.join(os.getcwd(), 'train/{env_name}/{label}_{date}'.format(env_name=config.env_name, label=label, date=date))
 
-
     def make_session():
         ncpu = multiprocessing.cpu_count()
         if sys.platform == 'darwin':
@@ -64,7 +65,6 @@ def simulate():
         config.gpu_options.allow_growth = True
         sess = tf.Session(config=config)
         sess.__enter__()
-
 
     make_session()
     sess = tf.get_default_session()
@@ -100,18 +100,14 @@ def simulate():
     _thread.start_new_thread(renderer_thread, (estimator, sess))
 
     runner = EnvRunner(sess, venv, estimator)
-    # runner = SampleRunner(runner)
     for t in range(parameters.nb_updates):
 
         decay = t / parameters.nb_updates if parameters.decay else 0
         learning_rate = parameters.learning_rate * (1 - decay)
         clipping = parameters.clipping * (1 - decay)
 
-        start_time = time.time()
         training_batch, epinfos = runner.run_timesteps(parameters.nb_steps)
-        # print("Running %s" % (time.time() - start_time))
 
-        start_time = time.time()
         inds = np.arange(parameters.batch_size)
         for _ in range(parameters.nb_epochs):
 
@@ -120,7 +116,6 @@ def simulate():
                 end = start + parameters.minibatch_size
                 mb_inds = inds[start:end]
 
-                loop_time = time.time()
                 _ = estimator.train(
                     obs=training_batch['obs'][mb_inds],
                     values=training_batch['values'][mb_inds],
@@ -131,9 +126,6 @@ def simulate():
                     clipping=clipping,
                     learning_rate=learning_rate,
                 )
-                # print("Train %s" % (time.time() - loop_time))
-
-        # print("Training %s" % (time.time() - start_time))
 
         if t % (100) == 0:
             print("Saved model", t)

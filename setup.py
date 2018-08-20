@@ -1,0 +1,36 @@
+from setuptools import setup
+
+setup(
+    name='ppo',
+    version='',
+    packages=['', 'utils', 'configs', 'wrappers', 'wrappers.vec_env'],
+    url='',
+    license='',
+    author='Sebastien Kerbrat',
+    author_email='sbkerbrat@gmail.com',
+    description='A reimplementation of the ppo algorithm based on openAI baselines',
+    install_requires=[
+        'absl-py',
+        'astor',
+        'certifi',
+        'chardet',
+        'docopt',
+        'future',
+        'gast',
+        'grpcio',
+        'gym[atari,classic_control]',
+        'idna',
+        'Markdown',
+        'numpy',
+        'opencv-python',
+        'protobuf',
+        'pyglet',
+        'requests',
+        'six',
+        'tensorboard',
+        'tensorflow',
+        'termcolor',
+        'urllib3',
+        'Werkzeug',
+    ]
+)
