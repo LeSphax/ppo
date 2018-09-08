@@ -77,3 +77,5 @@ class EnvConfiguration(ABC, metaclass=EnvConfigRegistration):
 from configs.breakout_config import *
 from configs.breakout_no_frameskip_config import *
 from configs.cartpole_config import *
+from configs.vizdoom_config import *
+from configs.random_button_config import *

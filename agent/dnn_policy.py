@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+from gym import spaces
 
 
 class CategoricalPd(object):
@@ -22,28 +23,62 @@ class CategoricalPd(object):
         return tf.argmax(self.logits - tf.log(-tf.log(u)), axis=-1)
 
 
+class DiagGaussianPd(object):
+    def __init__(self, flat):
+        self.flat = flat
+        mean, logstd = tf.split(axis=len(flat.shape) - 1, num_or_size_splits=2, value=flat)
+        self.mean = mean
+        self.logstd = logstd
+        self.std = tf.exp(logstd)
+
+    def neglogp(self, x):
+        return 0.5 * tf.reduce_sum(tf.square((x - self.mean) / self.std), axis=-1) \
+               + 0.5 * np.log(2.0 * np.pi) * tf.to_float(tf.shape(x)[-1]) \
+               + tf.reduce_sum(self.logstd, axis=-1)
+
+    def entropy(self):
+        return tf.reduce_sum(self.logstd + .5 * np.log(2.0 * np.pi * np.e), axis=-1)
+
+    def sample(self):
+        return self.mean + self.std * tf.random_normal(tf.shape(self.mean))
+
+
 class DNNPolicy(object):
 
-    def __init__(self, sess, X, model_output_layer, output_size, CLIPPING, *, reuse=False):
+    def __init__(self, sess, X, model_output_layer, action_space, CLIPPING, *, reuse=False):
         self.sess = sess
         self.X = X
         self.CLIPPING = CLIPPING
 
         with tf.variable_scope('policy', reuse=reuse):
-            self.output_layer = tf.contrib.layers.fully_connected(
-                inputs=model_output_layer,
-                num_outputs=output_size,
-                activation_fn=None,
-                weights_initializer=tf.constant_initializer(0.01)
-            )
 
-            self.probability_distribution = CategoricalPd(self.output_layer)
+            if isinstance(action_space, spaces.Discrete):
+                output_layer = tf.contrib.layers.fully_connected(
+                    inputs=model_output_layer,
+                    num_outputs=action_space.n,
+                    activation_fn=None,
+                    weights_initializer=tf.constant_initializer(0.01)
+                )
+                self.probability_distribution = CategoricalPd(output_layer)
+                shape = [None]
+            elif isinstance(action_space, spaces.Box):
+                size = action_space.shape[0]
+                mean = tf.contrib.layers.fully_connected(
+                    inputs=model_output_layer,
+                    num_outputs=size,
+                    activation_fn=None,
+                    weights_initializer=tf.constant_initializer(0.01)
+                )
+                logstd = tf.get_variable(name='logstd', shape=[1, size], initializer=tf.zeros_initializer())
+                pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
+                self.probability_distribution = DiagGaussianPd(pdparam)
+                shape = [None, size]
 
             self.action = self.probability_distribution.sample()
             self.neglogp_action = self.probability_distribution.neglogp(self.action)
 
             self.ADVANTAGES = tf.placeholder(tf.float32, [None])
-            self.ACTIONS = tf.placeholder(tf.int32, [None])
+            self.ACTIONS = tf.placeholder(dtype=action_space.dtype, shape=shape, name='Actions')
             self.OLDNEGLOGP_ACTIONS = tf.placeholder(tf.float32, [None])
 
             self.new_neglogp_action = self.probability_distribution.neglogp(self.ACTIONS)

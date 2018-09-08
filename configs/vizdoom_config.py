@@ -1,0 +1,88 @@
+import gym
+import numpy as np
+import tensorflow as tf
+from gym.wrappers import Monitor
+
+from configs import EnvConfiguration
+from wrappers.breakout_wrappers import WarpFrame
+from wrappers.monitor_env import MonitorEnv
+from wrappers.tensorboard_vec_env import TensorboardVecEnv
+from wrappers.vec_env.dummy_vec_env import DummyVecEnv
+from wrappers.vec_env.subproc_vec_env import SubprocVecEnv
+from wrappers.vec_env.vec_frame_stack import VecFrameStack
+
+
+class VizdoomConfig(EnvConfiguration):
+
+    def create_model(self, name, input_shape, reuse=False):
+        with tf.variable_scope(name, reuse=reuse):
+            X = tf.placeholder(shape=(None,) + input_shape, dtype=np.float32, name="X")
+
+            scaled_images = tf.cast(X, tf.float32) / 255.
+            previous_layer = tf.reshape(scaled_images, (-1,) + input_shape)
+
+            activ = tf.nn.elu
+
+            for i in range(4):
+                previous_layer = tf.contrib.layers.conv2d(
+                    inputs=previous_layer,
+                    num_outputs=32,
+                    kernel_size=3,
+                    padding=1,
+                    activation_fn=activ,
+                    stride=2,
+                    weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
+                )
+
+            total_size = np.prod([v.value for v in previous_layer.get_shape()[1:]])
+            previous_layer = tf.reshape(previous_layer, [-1, total_size])
+
+            for idx in range(1):
+                hidden_layer = tf.contrib.layers.fully_connected(
+                    inputs=previous_layer,
+                    num_outputs=512,
+                    activation_fn=activ,
+                    weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
+                )
+                previous_layer = hidden_layer
+            return X, previous_layer
+
+    def _parameters(self):
+        return {
+            "seed": 1,
+            "decay": False,
+            "num_env": 8,
+            "nb_steps": 128,
+            "nb_epochs": 4,
+            "nb_minibatch": 4,
+            "clipping": 0.1,
+            "learning_rate": 0.00025,
+            "total_timesteps": int(80e6),
+        }
+
+    @property
+    def env_name(self):
+        return "VizdoomMyWayHome-v0"
+
+    def make_env(self, proc_idx=0, summary_path=None, renderer=False):
+        env = gym.make(self.env_name)
+
+        env.seed(self.parameters.seed + proc_idx)
+        env = MonitorEnv(env)
+        if summary_path:
+            # Put Monitor before any wrappers that change the episode duration to get full episode in video
+            env = Monitor(env, directory=summary_path + "/" + str(proc_idx), resume=True)
+        env = WarpFrame(env)
+
+
+        return env
+
+    def make_vec_env(self, summary_path=None, renderer=False):
+        if renderer:
+            venv = DummyVecEnv([self.make_env_fn()])
+        else:
+            venv = SubprocVecEnv([self.make_env_fn(i, summary_path) for i in range(self.parameters.num_env)])
+            venv = TensorboardVecEnv(venv, summary_path)
+
+        venv = VecFrameStack(venv, 4)
+        return venv

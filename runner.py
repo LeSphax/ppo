@@ -26,14 +26,15 @@ class EnvRunner(object):
         epinfos = []
 
         for t in range(nb_timesteps):
-
             batch['obs'].append(self.obs)
             values, actions, neglogp_actions = self.estimator.step(self.obs)
             batch['values'].append(values)
             batch['neglogp_actions'].append(neglogp_actions)
             batch['actions'].append(actions)
 
+            start_time = time.time()
             self.obs, rewards, dones, infos = self.env.step(actions)
+            # print("Env", time.time()-start_time)
 
             batch['rewards'].append(rewards)
             batch['dones'].append(dones)

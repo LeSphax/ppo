@@ -5,7 +5,7 @@ class DNNAgent(object):
 
     def __init__(self, env, policy_class, value_class, model_function):
         input_shape = env.observation_space.shape
-        output_size = env.action_space.n
+
         self.sess = tf.get_default_session()
 
         self.X, model_output_layer = model_function('shared_model', input_shape)
@@ -13,7 +13,7 @@ class DNNAgent(object):
         self.LEARNING_RATE = tf.placeholder(tf.float32, (), name="learning_rate")
         self.CLIPPING = tf.placeholder(tf.float32, (), name="clipping")
 
-        self.policy_estimator = policy_class(self.sess, self.X, model_output_layer, output_size=output_size, CLIPPING=self.CLIPPING)
+        self.policy_estimator = policy_class(self.sess, self.X, model_output_layer, action_space = env.action_space, CLIPPING=self.CLIPPING)
         self.value_estimator = value_class(self.sess, self.X, model_output_layer, CLIPPING=self.CLIPPING)
 
         self.loss = self.policy_estimator.loss + 0.5 * self.value_estimator.loss
