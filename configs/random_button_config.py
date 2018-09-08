@@ -5,6 +5,7 @@ import tensorflow as tf
 from gym.wrappers import TimeLimit
 
 from configs import EnvConfiguration
+from utils.images import prepare_image
 from wrappers.breakout_wrappers import WarpFrame
 from wrappers.monitor_env import MonitorEnv
 from wrappers.tensorboard_vec_env import TensorboardVecEnv
@@ -14,14 +15,13 @@ from wrappers.vec_env.subproc_vec_env import SubprocVecEnv
 
 class RandomButtonConfig(EnvConfiguration):
 
-    def curiosity_encoder(self, input_state, reuse=False):
+    def curiosity_encoder(self, state, reuse=False):
         with tf.variable_scope('curiosity', reuse=reuse):
-            scaled_images = tf.cast(input_state, tf.float32) / 255.
-            previous_layer = tf.reshape(scaled_images, (-1,) + tf.shape(input_state))
+            prepared_image = prepare_image(state)
 
             activ = tf.nn.elu
             previous_layer = tf.contrib.layers.conv2d(
-                inputs=previous_layer,
+                inputs=prepared_image,
                 num_outputs=4,
                 kernel_size=4,
                 padding="valid",
@@ -30,7 +30,7 @@ class RandomButtonConfig(EnvConfiguration):
                 weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
             )
 
-            return tf.contrib.layers.conv2d(
+            previous_layer = tf.contrib.layers.conv2d(
                 inputs=previous_layer,
                 num_outputs=4,
                 kernel_size=3,
@@ -40,18 +40,22 @@ class RandomButtonConfig(EnvConfiguration):
                 weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
             )
 
-    def state_action_predictor(self, action_space, input_shape):
-        self.S0 = tf.placeholder(shape=(None,) + input_shape, dtype=np.float32, name="S0")
-        self.S1 = tf.placeholder(shape=(None,) + input_shape, dtype=np.float32, name="S1")
+            previous_layer = tf.reshape(previous_layer, [-1, np.prod(previous_layer.get_shape().as_list()[1:])])
 
-        encoder_s0 = self.curiosity_encoder(self.S0)
-        encoder_s1 = self.curiosity_encoder(self.S1, reuse=True)
+            return tf.contrib.layers.fully_connected(
+                inputs=previous_layer,
+                num_outputs=32,
+                activation_fn=activ,
+                weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
+            )
 
-        self.ACTIONS = tf.placeholder(dtype=action_space.dtype, shape=[None, 2], name='Actions')
+    def state_action_predictor(self, placeholders):
+        encoder_s0 = self.curiosity_encoder(placeholders['s0'])
+        encoder_s1 = self.curiosity_encoder(placeholders['s1'], reuse=True)
 
         activ = tf.nn.elu
 
-        inverse_encoding = tf.concat(encoder_s0, encoder_s1)
+        inverse_encoding = tf.concat([encoder_s0, encoder_s1], 1)
         inverse_fc = tf.contrib.layers.fully_connected(
             inputs=inverse_encoding,
             num_outputs=16,
@@ -65,9 +69,9 @@ class RandomButtonConfig(EnvConfiguration):
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
 
-        self.inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, self.ACTIONS)), name="invloss")
+        self.inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, placeholders['actions'])), name="invloss")
 
-        forward_encoding = tf.concat(1, [encoder_s0, self.ACTIONS])
+        forward_encoding = tf.concat([encoder_s0, placeholders['actions']], 1)
         forward_fc = tf.contrib.layers.fully_connected(
             inputs=forward_encoding,
             num_outputs=16,
@@ -82,18 +86,18 @@ class RandomButtonConfig(EnvConfiguration):
         )
 
         forward_loss = 0.5 * tf.reduce_mean(tf.square(tf.subtract(forward_next_state, encoder_s1)), name="forwardloss")
-        self.forward_loss = encoder_s0.get_shape()[1].value * forward_loss
+        self.forward_loss = encoder_s0.get_shape()[1].value * forward_loss  # make loss independent of output_size
 
-    def create_model(self, name, input_shape, reuse=False):
+        return self.inverse_loss * 0.2 + self.forward_loss * 0.8
+
+    def create_model(self, name, placeholders, reuse=False):
         with tf.variable_scope(name, reuse=reuse):
-            X = tf.placeholder(shape=(None,) + input_shape, dtype=np.float32, name="X")
 
-            scaled_images = tf.cast(X, tf.float32) / 255.
-            previous_layer = tf.reshape(scaled_images, (-1,) + input_shape)
+            prepared_image = prepare_image(placeholders['s0'])
 
             activ = tf.nn.elu
             previous_layer = tf.contrib.layers.conv2d(
-                inputs=previous_layer,
+                inputs=prepared_image,
                 num_outputs=4,
                 kernel_size=4,
                 padding="valid",
@@ -123,7 +127,7 @@ class RandomButtonConfig(EnvConfiguration):
                     weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
                 )
                 previous_layer = hidden_layer
-            return X, previous_layer
+            return previous_layer
 
     def _parameters(self):
         return {
@@ -160,7 +164,7 @@ class RandomButtonConfig(EnvConfiguration):
             venv = DummyVecEnv([self.make_env_fn()])
         else:
             venv = SubprocVecEnv([self.make_env_fn(i, summary_path) for i in range(self.parameters.num_env)])
-            venv = TensorboardVecEnv(venv, summary_path, summary_interval=100)
+            venv = TensorboardVecEnv(venv)
 
         # venv = VecFrameStack(venv, 4)
         return venv

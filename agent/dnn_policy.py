@@ -45,10 +45,8 @@ class DiagGaussianPd(object):
 
 class DNNPolicy(object):
 
-    def __init__(self, sess, X, model_output_layer, action_space, CLIPPING, *, reuse=False):
+    def __init__(self, sess, placeholders, model_output_layer, action_space, *, reuse=False):
         self.sess = sess
-        self.X = X
-        self.CLIPPING = CLIPPING
 
         with tf.variable_scope('policy', reuse=reuse):
 
@@ -60,7 +58,6 @@ class DNNPolicy(object):
                     weights_initializer=tf.constant_initializer(0.01)
                 )
                 self.probability_distribution = CategoricalPd(output_layer)
-                shape = [None]
             elif isinstance(action_space, spaces.Box):
                 size = action_space.shape[0]
                 mean = tf.contrib.layers.fully_connected(
@@ -72,20 +69,15 @@ class DNNPolicy(object):
                 logstd = tf.get_variable(name='logstd', shape=[1, size], initializer=tf.zeros_initializer())
                 pdparam = tf.concat([mean, mean * 0.0 + logstd], axis=1)
                 self.probability_distribution = DiagGaussianPd(pdparam)
-                shape = [None, size]
 
             self.action = self.probability_distribution.sample()
             self.neglogp_action = self.probability_distribution.neglogp(self.action)
 
-            self.ADVANTAGES = tf.placeholder(tf.float32, [None])
-            self.ACTIONS = tf.placeholder(dtype=action_space.dtype, shape=shape, name='Actions')
-            self.OLDNEGLOGP_ACTIONS = tf.placeholder(tf.float32, [None])
-
-            self.new_neglogp_action = self.probability_distribution.neglogp(self.ACTIONS)
+            self.new_neglogp_action = self.probability_distribution.neglogp(placeholders['actions'])
 
             self.entropy = tf.reduce_mean(self.probability_distribution.entropy())
 
-            ratio = tf.exp(self.OLDNEGLOGP_ACTIONS - self.new_neglogp_action)
-            pg_losses = -self.ADVANTAGES * ratio
-            pg_losses2 = -self.ADVANTAGES * tf.clip_by_value(ratio, 1.0 - self.CLIPPING, 1.0 + self.CLIPPING)
+            ratio = tf.exp(placeholders['oldneglogp_actions'] - self.new_neglogp_action)
+            pg_losses = -placeholders['advantages'] * ratio
+            pg_losses2 = -placeholders['advantages'] * tf.clip_by_value(ratio, 1.0 - placeholders['clipping'], 1.0 + placeholders['clipping'])
             self.loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2)) - self.entropy * 0.01

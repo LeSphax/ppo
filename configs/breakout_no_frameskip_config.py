@@ -4,6 +4,7 @@ import tensorflow as tf
 from gym.wrappers import Monitor
 
 from configs import EnvConfiguration
+from utils.images import prepare_image
 from wrappers.breakout_wrappers import MaxAndSkipEnv, NoopResetEnv, EpisodicLifeEnv, FireResetEnv, WarpFrame, \
     ClipRewardEnv
 from wrappers.monitor_env import MonitorEnv
@@ -16,12 +17,10 @@ from wrappers.vec_env.vec_frame_stack import VecFrameStack
 #Config used by openAI baseline, useful to compare performance
 class BreakoutNoFrameskipConfig(EnvConfiguration):
 
-    def create_model(self, name, input_shape, reuse=False):
+    def create_model(self, name, placeholders, reuse=False):
         with tf.variable_scope(name, reuse=reuse):
-            X = tf.placeholder(shape=(None,) + input_shape, dtype=np.float32, name="X")
 
-            scaled_images = tf.cast(X, tf.float32) / 255.
-            previous_layer = tf.reshape(scaled_images, (-1,) + input_shape)
+            previous_layer = prepare_image(placeholders['s0'])
 
             activ = tf.nn.relu
             previous_layer = tf.contrib.layers.conv2d(
@@ -65,7 +64,7 @@ class BreakoutNoFrameskipConfig(EnvConfiguration):
                     weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
                 )
                 previous_layer = hidden_layer
-            return X, previous_layer
+            return previous_layer
 
     def _parameters(self):
         return {

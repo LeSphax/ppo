@@ -20,6 +20,7 @@ from agent.dnn_value import DNNValue
 
 import numpy as np
 import utils.keyPoller as kp
+import utils.tensorboard_util as tboard
 from datetime import datetime
 import time
 import multiprocessing
@@ -44,6 +45,7 @@ load = options['--load']
 date = datetime.now().strftime("%m%d-%H%M")
 
 
+
 def simulate():
     config = configs.get_config(env_name)
     parameters = config.parameters
@@ -54,6 +56,7 @@ def simulate():
     save_path = os.path.join(save_dir, 'latest_save')
 
     summary_path = os.path.join(os.getcwd(), 'train/{env_name}/{label}_{date}'.format(env_name=config.env_name, label=label, date=date))
+    tboard.init(summary_path)
 
     def make_session():
         ncpu = multiprocessing.cpu_count()
@@ -70,7 +73,7 @@ def simulate():
     sess = tf.get_default_session()
 
     venv = config.make_vec_env(summary_path)
-    estimator = DNNAgent(venv, policy_class=DNNPolicy, value_class=DNNValue, model_function=config.create_model)
+    estimator = DNNAgent(venv, policy_class=DNNPolicy, value_class=DNNValue, config=config)
     saver = tf.train.Saver()
     if load:
         tf.train.Saver().restore(sess, save_path)
@@ -116,8 +119,9 @@ def simulate():
                 end = start + parameters.minibatch_size
                 mb_inds = inds[start:end]
 
-                _ = estimator.train(
+                entropy, loss = estimator.train(
                     obs=training_batch['obs'][mb_inds],
+                    next_obs=training_batch['next_obs'][mb_inds],
                     values=training_batch['values'][mb_inds],
                     actions=training_batch['actions'][mb_inds],
                     neglogp_actions=training_batch['neglogp_actions'][mb_inds],
@@ -127,9 +131,16 @@ def simulate():
                     learning_rate=learning_rate,
                 )
 
-        if t % (100) == 0:
+                tboard.add("Entropy", entropy)
+                tboard.add("Loss", loss)
+
+        if t % (100) == -1:
             print("Saved model", t)
             saver.save(sess, save_path)
+
+        if t % (1) == 0:
+            print("Summary ", t * parameters.batch_size)
+            tboard.save(t * parameters.batch_size)
 
 
 if __name__ == "__main__":

@@ -61,9 +61,11 @@ class EnvRunner(object):
 
         batch['advantages'] = advantages
         batch['returns'] = returns
+        
 
+        batch['next_obs'] = batch['obs'][1:]
+        batch['next_obs'].append(self.obs)
         trajectory = {k: flatten_venv(np.asarray(batch[k])) for k in batch}
-
         return trajectory, epinfos
 
 

@@ -24,7 +24,7 @@ class EnvConfigRegistration(ABCMeta):
 class EnvConfiguration(ABC, metaclass=EnvConfigRegistration):
 
     @abstractmethod
-    def create_model(self, name, input_shape, reuse=False):
+    def create_model(self, name, placeholders, reuse=False):
         """
         Creates the model to use for the policy and value function of this environment
         """

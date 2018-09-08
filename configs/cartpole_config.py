@@ -12,12 +12,9 @@ from configs import EnvConfiguration
 
 class CartPoleConfig(EnvConfiguration):
 
-    def create_model(self, name, input_shape, reuse=False):
-        input_size = input_shape[0]
+    def create_model(self, name, placeholders, reuse=False):
         with tf.variable_scope(name, reuse=reuse):
-            X = tf.placeholder(shape=[None, input_size], dtype=np.float32, name="X")
-
-            previous_layer = X
+            previous_layer = placeholders['s0']
 
             for idx in range(2):
                 hidden_layer = tf.contrib.layers.fully_connected(
@@ -27,7 +24,7 @@ class CartPoleConfig(EnvConfiguration):
                     weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
                 )
                 previous_layer = hidden_layer
-            return X, previous_layer
+            return previous_layer
 
     def _parameters(self):
         return {
