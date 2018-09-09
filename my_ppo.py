@@ -119,7 +119,7 @@ def simulate():
                 end = start + parameters.minibatch_size
                 mb_inds = inds[start:end]
 
-                entropy, loss = estimator.train(
+                train_results = estimator.train(
                     obs=training_batch['obs'][mb_inds],
                     next_obs=training_batch['next_obs'][mb_inds],
                     values=training_batch['values'][mb_inds],
@@ -131,8 +131,8 @@ def simulate():
                     learning_rate=learning_rate,
                 )
 
-                tboard.add("Entropy", entropy)
-                tboard.add("Loss", loss)
+                for train_result in train_results:
+                    tboard.add(train_result, train_results[train_result])
 
         if t % (100) == -1:
             print("Saved model", t)

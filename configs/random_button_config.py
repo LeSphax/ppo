@@ -69,7 +69,7 @@ class RandomButtonConfig(EnvConfiguration):
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
 
-        self.inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, placeholders['actions'])), name="invloss")
+        inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, placeholders['actions'])), name="invloss")
 
         forward_encoding = tf.concat([encoder_s0, placeholders['actions']], 1)
         forward_fc = tf.contrib.layers.fully_connected(
@@ -85,14 +85,20 @@ class RandomButtonConfig(EnvConfiguration):
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
 
-        forward_loss = 0.5 * tf.reduce_mean(tf.square(tf.subtract(forward_next_state, encoder_s1)), name="forwardloss")
-        self.forward_loss = encoder_s0.get_shape()[1].value * forward_loss  # make loss independent of output_size
+        forward_losses = tf.square(tf.subtract(forward_next_state, encoder_s1))
+        forward_losses = tf.reduce_mean(forward_losses, 1, name="forwardlosses")  # Reduce only the encoding dimensions to allow batch inferences
 
-        return self.inverse_loss * 0.2 + self.forward_loss * 0.8
+        forward_loss = 0.5 * tf.reduce_mean(forward_losses, name="forwardloss")
+        forward_loss = encoder_s0.get_shape()[1].value * forward_loss  # make loss independent of output_size
+
+        def get_bonus(sess, s0, actions, s1):
+            error = sess.run(forward_losses, {placeholders['s0']: s0, placeholders['s1']: s1, placeholders['actions']: actions})
+            return error * 0.01
+
+        return {'inverse_loss': inverse_loss, 'forward_loss': forward_loss, 'loss': inverse_loss * 0.8 + forward_loss * 0.2, 'bonus_function': get_bonus}
 
     def create_model(self, name, placeholders, reuse=False):
         with tf.variable_scope(name, reuse=reuse):
-
             prepared_image = prepare_image(placeholders['s0'])
 
             activ = tf.nn.elu

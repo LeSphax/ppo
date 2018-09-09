@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+import utils.tensorboard_util as tboard
 
 
 class EnvRunner(object):
@@ -26,6 +27,7 @@ class EnvRunner(object):
         epinfos = []
 
         for t in range(nb_timesteps):
+            start_time = time.time()
             batch['obs'].append(self.obs)
             values, actions, neglogp_actions = self.estimator.step(self.obs)
             batch['values'].append(values)
@@ -34,7 +36,6 @@ class EnvRunner(object):
 
             start_time = time.time()
             self.obs, rewards, dones, infos = self.env.step(actions)
-            # print("Env", time.time()-start_time)
 
             batch['rewards'].append(rewards)
             batch['dones'].append(dones)
@@ -45,6 +46,21 @@ class EnvRunner(object):
 
         advantages = np.zeros_like(batch['rewards'], dtype=float)
 
+        batch['next_obs'] = batch['obs'][1:]
+        batch['next_obs'].append(self.obs)
+
+        start_time = time.time()
+        full_rewards = np.zeros(np.shape(batch['rewards']))
+        if self.estimator.curiosity:
+            obs = flatten_venv(batch['obs'], swap=False)
+            actions = flatten_venv(batch['actions'], swap=False)
+            next_obs = flatten_venv(batch['next_obs'], swap=False)
+            bonus = self.estimator.get_bonus(obs, actions, next_obs)
+            bonus = unflatten_venv(bonus, np.shape(batch['rewards']))
+            full_rewards += bonus
+            tboard.add('Bonuses', bonus)
+        print('Bonus inference', time.time() - start_time)
+
         last_values = self.estimator.get_value(self.obs)
         batch['values'].append(last_values)
         last_discounted_adv = np.zeros(self.env.num_envs)
@@ -52,7 +68,7 @@ class EnvRunner(object):
             use_future_rewards = 1 - batch['dones'][idx]
             next_value = batch['values'][idx + 1] * use_future_rewards
 
-            td_error = self.discount_factor * next_value + batch['rewards'][idx] - batch['values'][idx]
+            td_error = self.discount_factor * next_value + full_rewards[idx] - batch['values'][idx]
             advantages[idx] = last_discounted_adv \
                 = td_error + self.discount_factor * self.gae_weighting * last_discounted_adv * use_future_rewards
 
@@ -61,17 +77,23 @@ class EnvRunner(object):
 
         batch['advantages'] = advantages
         batch['returns'] = returns
-        
 
-        batch['next_obs'] = batch['obs'][1:]
-        batch['next_obs'].append(self.obs)
-        trajectory = {k: flatten_venv(np.asarray(batch[k])) for k in batch}
+        trajectory = {k: flatten_venv(batch[k]) for k in batch}
         return trajectory, epinfos
 
 
-def flatten_venv(arr):
+def flatten_venv(arr, swap=True):
     """
     swap and then flatten axes 0 and 1
     """
+    arr = np.asarray(arr)
     s = arr.shape
-    return arr.swapaxes(0, 1).reshape(s[0] * s[1], *s[2:])
+    if swap:
+        arr = arr.swapaxes(0, 1)
+    return arr.reshape(s[0] * s[1], *s[2:])
+
+def unflatten_venv(arr, original_shape):
+    """
+        unflatten an array that was passed through flatten_venv with swap to False
+    """
+    return arr.reshape(original_shape[0], original_shape[1], *original_shape[2:])

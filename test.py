@@ -4,13 +4,15 @@ import time
 import random
 import numpy as np
 
-env = gym.make("RandomButton-v0")
-env.reset()
+array = [[[1,1],[2,2]], [[3,3],[4,4]], [[5,5],[6,6]]]
+arr = np.asarray(array)
+print(arr)
+print(np.shape(arr))
 
-for _ in range(300):
-    # env.render()
+reshaped = np.reshape(arr, [-1, 2])
+print(reshaped)
+print(np.shape(reshaped))
 
-    action = np.random.rand(2)
-    print(action)
-    env.step(action)
-    time.sleep(0.3)
+back = np.reshape(reshaped, [3,2,2])
+print(back)
+print(np.shape(back))

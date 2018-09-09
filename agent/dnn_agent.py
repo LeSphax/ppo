@@ -27,11 +27,11 @@ class DNNAgent(object):
         self.policy_estimator = policy_class(self.sess, self.placeholders, model_output_layer, action_space=env.action_space)
         self.value_estimator = value_class(self.sess, self.placeholders, model_output_layer)
 
-        self.loss = self.policy_estimator.loss + 0.5 * self.value_estimator.loss
+        self.loss = self.ppo_loss = self.policy_estimator.loss + 0.5 * self.value_estimator.loss
 
         if config.state_action_predictor:
-            self.curiosity_loss = config.state_action_predictor(self.placeholders)
-            self.loss = self.loss + self.curiosity_loss * 10
+            self.curiosity = config.state_action_predictor(self.placeholders)
+            self.loss = self.ppo_loss + self.curiosity['loss'] * 10
 
         params = tf.trainable_variables()
         grads = tf.gradients(self.loss, params)
@@ -59,8 +59,8 @@ class DNNAgent(object):
 
     def train(self, *, obs, next_obs, values, actions, neglogp_actions, advantages, returns, clipping, learning_rate):
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        entropy, loss, _ = self.sess.run(
-            [self.policy_estimator.entropy, self.loss, self._train],
+        entropy, loss, ppo_loss, forward_loss, inverse_loss, _ = self.sess.run(
+            [self.policy_estimator.entropy, self.loss, self.ppo_loss, self.curiosity['forward_loss'], self.curiosity['inverse_loss'], self._train],
             {
                 self.placeholders['s0']: obs,
                 self.placeholders['s1']: next_obs,
@@ -73,10 +73,13 @@ class DNNAgent(object):
                 self.placeholders['learning_rate']: learning_rate,
             }
         )
-        return entropy, loss
+        return {'Entropy': entropy, 'Loss': loss, 'PPO loss': ppo_loss, 'Forward loss': forward_loss, 'Inverse loss': inverse_loss}
 
     def get_value(self, obs):
         return self.sess.run(self.value_estimator.value, {self.placeholders['s0']: obs})
+
+    def get_bonus(self, obs, actions, next_obs):
+        return self.curiosity['bonus_function'](self.sess, s0=obs, actions=actions, s1=next_obs)
 
     def get_action_shape(self, action_space):
         if isinstance(action_space, spaces.Discrete):
