@@ -27,14 +27,13 @@ class EnvRunner(object):
         epinfos = []
 
         for t in range(nb_timesteps):
-            start_time = time.time()
             batch['obs'].append(self.obs)
+            # tboard.add_image('Obs', self.obs)
             values, actions, neglogp_actions = self.estimator.step(self.obs)
             batch['values'].append(values)
             batch['neglogp_actions'].append(neglogp_actions)
             batch['actions'].append(actions)
 
-            start_time = time.time()
             self.obs, rewards, dones, infos = self.env.step(actions)
 
             batch['rewards'].append(rewards)
@@ -49,7 +48,6 @@ class EnvRunner(object):
         batch['next_obs'] = batch['obs'][1:]
         batch['next_obs'].append(self.obs)
 
-        start_time = time.time()
         full_rewards = np.zeros(np.shape(batch['rewards']))
         if self.estimator.curiosity:
             obs = flatten_venv(batch['obs'], swap=False)
@@ -59,7 +57,6 @@ class EnvRunner(object):
             bonus = unflatten_venv(bonus, np.shape(batch['rewards']))
             full_rewards += bonus
             tboard.add('Bonuses', bonus)
-        print('Bonus inference', time.time() - start_time)
 
         last_values = self.estimator.get_value(self.obs)
         batch['values'].append(last_values)
