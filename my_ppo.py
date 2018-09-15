@@ -4,6 +4,7 @@ import os
 
 import configs
 from configs import *
+from wrappers.sample_runner import SampleRunner
 
 if __name__ == '__main__':
     if __package__ is None:
@@ -103,6 +104,7 @@ def simulate():
     _thread.start_new_thread(renderer_thread, (estimator, sess))
 
     runner = EnvRunner(sess, venv, estimator)
+    # runner = SampleRunner(runner,sample_rate=10)
     for t in range(parameters.nb_updates):
 
         decay = t / parameters.nb_updates if parameters.decay else 0
@@ -134,7 +136,7 @@ def simulate():
                 for train_result in train_results:
                     tboard.add(train_result, train_results[train_result])
 
-        if t % (100) == -1:
+        if t % (10) == 9:
             print("Saved model", t)
             saver.save(sess, save_path)
 

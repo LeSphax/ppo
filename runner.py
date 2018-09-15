@@ -28,7 +28,6 @@ class EnvRunner(object):
 
         for t in range(nb_timesteps):
             batch['obs'].append(self.obs)
-            # tboard.add_image('Obs', self.obs)
             values, actions, neglogp_actions = self.estimator.step(self.obs)
             batch['values'].append(values)
             batch['neglogp_actions'].append(neglogp_actions)
@@ -48,11 +47,13 @@ class EnvRunner(object):
         batch['next_obs'] = batch['obs'][1:]
         batch['next_obs'].append(self.obs)
 
+        # full_rewards = batch['rewards']
         full_rewards = np.zeros(np.shape(batch['rewards']))
         if self.estimator.curiosity:
             obs = flatten_venv(batch['obs'], swap=False)
             actions = flatten_venv(batch['actions'], swap=False)
             next_obs = flatten_venv(batch['next_obs'], swap=False)
+            # tboard.add_image('Obs', obs[-1])
             bonus = self.estimator.get_bonus(obs, actions, next_obs)
             bonus = unflatten_venv(bonus, np.shape(batch['rewards']))
             full_rewards += bonus
