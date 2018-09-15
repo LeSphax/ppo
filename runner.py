@@ -5,13 +5,14 @@ import utils.tensorboard_util as tboard
 
 
 class EnvRunner(object):
-    def __init__(self, session, env, estimator, discount_factor=0.99, gae_weighting=0.95):
+    def __init__(self, session, env, estimator, discount_factor=0.99, gae_weighting=0.95, **kwargs):
         self.sess = session
         self.estimator = estimator
         self.env = env
         self.obs = self.env.reset()
         self.discount_factor = discount_factor
         self.gae_weighting = gae_weighting
+        self.kwargs = kwargs
 
     def run_timesteps(self, nb_timesteps):
         batch = {
@@ -28,7 +29,6 @@ class EnvRunner(object):
 
         for t in range(nb_timesteps):
             batch['obs'].append(self.obs)
-            # tboard.add_image('Obs', self.obs)
             values, actions, neglogp_actions = self.estimator.step(self.obs)
             batch['values'].append(values)
             batch['neglogp_actions'].append(neglogp_actions)
@@ -48,11 +48,12 @@ class EnvRunner(object):
         batch['next_obs'] = batch['obs'][1:]
         batch['next_obs'].append(self.obs)
 
-        full_rewards = np.zeros(np.shape(batch['rewards']))
-        if self.estimator.curiosity:
+        full_rewards = batch['rewards'] if self.kwargs['use_rewards'] else full_rewards = np.zeros(np.shape(batch['rewards']))
+        if self.kwargs['use_curiosity'] and self.estimator.curiosity:
             obs = flatten_venv(batch['obs'], swap=False)
             actions = flatten_venv(batch['actions'], swap=False)
             next_obs = flatten_venv(batch['next_obs'], swap=False)
+            # tboard.add_image('Obs', obs[-1])
             bonus = self.estimator.get_bonus(obs, actions, next_obs)
             bonus = unflatten_venv(bonus, np.shape(batch['rewards']))
             full_rewards += bonus
