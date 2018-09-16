@@ -5,7 +5,12 @@ registry = {}
 
 
 def register_class(target_class):
-    registry[target_class().env_name] = target_class
+    env_name = target_class().env_name
+    if isinstance(env_name, list):
+        for name in env_name:
+            registry[name] = target_class
+    else:
+        registry[env_name] = target_class
 
 
 def get_config(env_name):
@@ -79,3 +84,5 @@ from configs.breakout_no_frameskip_config import *
 from configs.cartpole_config import *
 from configs.vizdoom_config import *
 from configs.random_button_config import *
+from configs.fixed_button_config import *
+from configs.fixed_button_hard_config import *
