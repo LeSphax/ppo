@@ -5,7 +5,12 @@ registry = {}
 
 
 def register_class(target_class):
-    registry[target_class().env_name] = target_class
+    env_name = target_class().env_name
+    if isinstance(env_name, list):
+        for name in env_name:
+            registry[name] = target_class
+    else:
+        registry[env_name] = target_class
 
 
 def get_config(env_name):
