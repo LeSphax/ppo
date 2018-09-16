@@ -4,6 +4,7 @@ import os
 
 import configs
 from configs import *
+from wrappers.sample_runner import SampleRunner
 
 if __name__ == '__main__':
     if __package__ is None:
@@ -29,11 +30,13 @@ import tensorflow as tf
 
 _USAGE = '''
 Usage:
-    my_ppo (<label>) (<env_name>) [--debug|--load]
+    my_ppo (<label>) (<env_name>) [--debug|--load|--nocuriosity|--norewards]
     
 Options:
     --debug                        Tensorflow debugger
-    --load                        Load the last save with this name
+    --load                          Load the last save with this name
+    --curiosity                    Activate curiosity module 
+    --rewards                       Activate rewards
 
 '''
 options = docopt(_USAGE)
@@ -41,6 +44,8 @@ options = docopt(_USAGE)
 label = str(options['<label>'])
 env_name = str(options['<env_name>'])
 load = options['--load']
+rewards = not options['--norewards']
+curiosity = not options['--nocuriosity']
 
 date = datetime.now().strftime("%m%d-%H%M")
 
@@ -102,7 +107,8 @@ def simulate():
 
     _thread.start_new_thread(renderer_thread, (estimator, sess))
 
-    runner = EnvRunner(sess, venv, estimator)
+    runner = EnvRunner(sess, venv, estimator, use_curiosity=curiosity, use_rewards=rewards)
+    # runner = SampleRunner(runner,sample_rate=10)
     for t in range(parameters.nb_updates):
 
         decay = t / parameters.nb_updates if parameters.decay else 0
@@ -134,7 +140,7 @@ def simulate():
                 for train_result in train_results:
                     tboard.add(train_result, train_results[train_result])
 
-        if t % (100) == -1:
+        if t % (10) == 9:
             print("Saved model", t)
             saver.save(sess, save_path)
 
