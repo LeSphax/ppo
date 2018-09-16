@@ -18,14 +18,14 @@ class SampleRunner(object):
         if len(self.last_batches) == self.sample_size:
             self.last_batches = self.last_batches[:-1]
         if self.nb_batch % self.sample_rate == self.sample_size:
-            for k in ['obs', 'returns', 'actions', 'values']:
+            for k in ['actions']:
                 print('----------------------------------' + k + '-------------------------------------')
                 for _, batch in enumerate(self.last_batches):
-                    if len(np.shape(batch[k])) == 1:
-                        print(batch[k][0:10])
-                    print(np.mean(batch[k]))
-                    print(np.std(batch[k]))
-                    print(np.shape(batch[k]))
+                    if len(np.shape(batch[k])) < 10:
+                        print("Sample ", batch[k][0:10])
+                    print("Mean ", np.mean(batch[k]))
+                    print("Std ", np.std(batch[k]))
+                    print("Shape ", np.shape(batch[k]))
             print('================================================')
             print(self.nb_batch)
             self.last_batches = []
