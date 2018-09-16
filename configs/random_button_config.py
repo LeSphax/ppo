@@ -2,6 +2,7 @@ import gym
 import gym_ui
 import numpy as np
 import tensorflow as tf
+import utils.tensorboard_util as tboard
 from gym.wrappers import TimeLimit
 
 from configs import EnvConfiguration
@@ -22,7 +23,7 @@ class RandomButtonConfig(EnvConfiguration):
             activ = tf.nn.elu
             previous_layer = tf.contrib.layers.conv2d(
                 inputs=prepared_image,
-                num_outputs=4,
+                num_outputs=16,
                 kernel_size=4,
                 padding="valid",
                 activation_fn=activ,
@@ -32,7 +33,7 @@ class RandomButtonConfig(EnvConfiguration):
 
             previous_layer = tf.contrib.layers.conv2d(
                 inputs=previous_layer,
-                num_outputs=4,
+                num_outputs=16,
                 kernel_size=3,
                 padding="valid",
                 activation_fn=activ,
@@ -44,21 +45,23 @@ class RandomButtonConfig(EnvConfiguration):
 
             return tf.contrib.layers.fully_connected(
                 inputs=previous_layer,
-                num_outputs=32,
+                num_outputs=4,
                 activation_fn=activ,
                 weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
             )
 
     def state_action_predictor(self, placeholders):
+        clipped_actions = tf.clip_by_value(placeholders['actions'],0,1)
         encoder_s0 = self.curiosity_encoder(placeholders['s0'])
         encoder_s1 = self.curiosity_encoder(placeholders['s1'], reuse=True)
+        # encoder_s0 = tf.print(encoder_s0, [encoder_s0], summarize=16)
 
         activ = tf.nn.elu
 
         inverse_encoding = tf.concat([encoder_s0, encoder_s1], 1)
         inverse_fc = tf.contrib.layers.fully_connected(
             inputs=inverse_encoding,
-            num_outputs=16,
+            num_outputs=32,
             activation_fn=activ,
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
@@ -69,12 +72,14 @@ class RandomButtonConfig(EnvConfiguration):
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
 
-        inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, placeholders['actions'])), name="invloss")
+        # inverse_logits = tf.print(inverse_logits, [inverse_logits], summarize=16)
 
-        forward_encoding = tf.concat([encoder_s0, placeholders['actions']], 1)
+        inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, clipped_actions)), name="invloss")
+
+        forward_encoding = tf.concat([encoder_s0, clipped_actions], 1)
         forward_fc = tf.contrib.layers.fully_connected(
             inputs=forward_encoding,
-            num_outputs=16,
+            num_outputs=32,
             activation_fn=activ,
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
@@ -84,6 +89,7 @@ class RandomButtonConfig(EnvConfiguration):
             activation_fn=activ,
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
+        # encoder_s1 = tf.print(encoder_s1, [encoder_s1], summarize=100)
 
         forward_losses = tf.square(tf.subtract(forward_next_state, encoder_s1))
         forward_losses = tf.reduce_mean(forward_losses, 1, name="forwardlosses")  # Reduce only the encoding dimensions to allow batch inferences
@@ -92,8 +98,9 @@ class RandomButtonConfig(EnvConfiguration):
         forward_loss = encoder_s0.get_shape()[1].value * forward_loss  # make loss independent of output_size
 
         def get_bonus(sess, s0, actions, s1):
-            error = sess.run(forward_losses, {placeholders['s0']: s0, placeholders['s1']: s1, placeholders['actions']: actions})
-            return error * 0.01
+            error, predicted_next_state = sess.run([forward_losses, forward_next_state], {placeholders['s0']: s0, placeholders['s1']: s1, placeholders['actions']: actions})
+            # tboard.add_image('Predicted next', predicted_next_state[-1])
+            return error
 
         return {'inverse_loss': inverse_loss, 'forward_loss': forward_loss, 'loss': inverse_loss * 0.8 + forward_loss * 0.2, 'bonus_function': get_bonus}
 
@@ -145,12 +152,12 @@ class RandomButtonConfig(EnvConfiguration):
             "nb_minibatch": 4,
             "clipping": 0.1,
             "learning_rate": 0.00025,
-            "total_timesteps": int(80e6),
+            "total_timesteps": int(1e6),
         }
 
     @property
     def env_name(self):
-        return "RandomButton-v0"
+        return "FixedButtonHard-v0"
 
     def make_env(self, proc_idx=0, summary_path=None, renderer=False):
         env = gym.make(self.env_name)
