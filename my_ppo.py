@@ -4,6 +4,7 @@ import os
 
 import configs
 from configs import *
+from wrappers.sample_runner import SampleRunner
 
 if __name__ == '__main__':
     if __package__ is None:
@@ -26,14 +27,17 @@ import time
 import multiprocessing
 from docopt import docopt
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 _USAGE = '''
 Usage:
-    my_ppo (<label>) (<env_name>) [--debug|--load]
+    my_ppo (<label>) (<env_name>) [--debug|--load|--nocuriosity|--norewards]
     
 Options:
     --debug                        Tensorflow debugger
-    --load                        Load the last save with this name
+    --load                          Load the last save with this name
+    --curiosity                    Activate curiosity module 
+    --rewards                       Activate rewards
 
 '''
 options = docopt(_USAGE)
@@ -41,9 +45,10 @@ options = docopt(_USAGE)
 label = str(options['<label>'])
 env_name = str(options['<env_name>'])
 load = options['--load']
+rewards = not options['--norewards']
+curiosity = not options['--nocuriosity']
 
 date = datetime.now().strftime("%m%d-%H%M")
-
 
 
 def simulate():
@@ -102,14 +107,15 @@ def simulate():
 
     _thread.start_new_thread(renderer_thread, (estimator, sess))
 
-    runner = EnvRunner(sess, venv, estimator)
+    runner = EnvRunner(sess, venv, estimator, use_curiosity=curiosity, use_rewards=rewards)
+    # runner = SampleRunner(runner,sample_rate=10)
     for t in range(parameters.nb_updates):
 
         decay = t / parameters.nb_updates if parameters.decay else 0
         learning_rate = parameters.learning_rate * (1 - decay)
         clipping = parameters.clipping * (1 - decay)
 
-        training_batch, epinfos = runner.run_timesteps(parameters.nb_steps)
+        training_batch, _ = runner.run_timesteps(parameters.nb_steps)
 
         inds = np.arange(parameters.batch_size)
         for _ in range(parameters.nb_epochs):
@@ -133,12 +139,25 @@ def simulate():
 
                 for train_result in train_results:
                     tboard.add(train_result, train_results[train_result])
+        infos = {k: [dic[k] for dic in training_batch['infos']] for k in training_batch['infos'][0]}
+        bonuses = training_batch['bonuses']
 
-        if t % (100) == -1:
+        fig = plt.figure()
+
+        plot = fig.add_subplot(111)
+        plot.scatter(infos['distance_border'], bonuses, s=1)
+
+        fig.canvas.draw()  # draw the canvas, cache the renderer
+
+        image = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8')
+        image = image.reshape((1,) + fig.canvas.get_width_height()[::-1] + (3,))
+        tboard.add_image('plot', image)
+
+        if t % 10 == 9:
             print("Saved model", t)
             saver.save(sess, save_path)
 
-        if t % (1) == 0:
+        if t % 1 == 0:
             print("Summary ", t * parameters.batch_size)
             tboard.save(t * parameters.batch_size)
 

@@ -66,6 +66,7 @@ def save(current_step):
         {placeholders[k]: feed_dict[k] for k in feed_dict}
     )
     train_writer.add_summary(summary, current_step)
+    train_writer.flush()
 
     for var_name in values:
         values[var_name] = []

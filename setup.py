@@ -21,6 +21,7 @@ setup(
         'gym[atari,classic_control]',
         'idna',
         'Markdown',
+        'matplotlib',
         'numpy',
         'opencv-python',
         'protobuf',
