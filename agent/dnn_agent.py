@@ -4,9 +4,10 @@ from gym import spaces
 
 class DNNAgent(object):
 
-    def __init__(self, env, policy_class, value_class, config):
+    def __init__(self, env, policy_class, value_class, config, use_curiosity):
         input_shape = env.observation_space.shape
         action_space = env.action_space
+        self.use_curiosity = use_curiosity
 
         self.sess = tf.get_default_session()
 
@@ -29,7 +30,9 @@ class DNNAgent(object):
 
         self.loss = self.ppo_loss = self.policy_estimator.loss + 0.5 * self.value_estimator.loss
 
-        if config.state_action_predictor:
+        if self.use_curiosity:
+            if not hasattr(config, 'state_action_predictor'):
+                raise AttributeError('The agent was told to use curiosity but no configuration was set for the curiosity model')
             self.curiosity = config.state_action_predictor(self.placeholders)
             self.loss = self.ppo_loss + self.curiosity['loss'] * 10
 
@@ -59,8 +62,12 @@ class DNNAgent(object):
 
     def train(self, *, obs, next_obs, values, actions, neglogp_actions, advantages, returns, clipping, learning_rate):
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-        entropy, loss, ppo_loss, forward_loss, inverse_loss, _ = self.sess.run(
-            [self.policy_estimator.entropy, self.loss, self.ppo_loss, self.curiosity['forward_loss'], self.curiosity['inverse_loss'], self._train],
+        run_list = [self.policy_estimator.entropy, self.loss,  self._train]
+        if self.use_curiosity:
+            run_list.extend([self.ppo_loss, self.curiosity['forward_loss'], self.curiosity['inverse_loss']])
+
+        values = self.sess.run(
+            run_list,
             {
                 self.placeholders['s0']: obs,
                 self.placeholders['s1']: next_obs,
@@ -73,7 +80,17 @@ class DNNAgent(object):
                 self.placeholders['learning_rate']: learning_rate,
             }
         )
-        return {'Entropy': entropy, 'Loss': loss, 'PPO loss': ppo_loss, 'Forward loss': forward_loss, 'Inverse loss': inverse_loss}
+        run_out = dict(zip(run_list, values))
+        stats = {
+            'Stats/Entropy': run_out[self.policy_estimator.entropy],
+            'Stats/Loss': run_out[self.loss],
+        }
+        if self.use_curiosity:
+            stats['Stats/PPO loss'] = run_out[self.ppo_loss]
+            stats['Stats/Forward loss'] = run_out[self.curiosity['forward_loss']]
+            stats['Stats/Inverse loss'] = run_out[self.curiosity['inverse_loss']]
+
+        return stats
 
     def get_value(self, obs):
         return self.sess.run(self.value_estimator.value, {self.placeholders['s0']: obs})

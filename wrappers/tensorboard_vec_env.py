@@ -13,7 +13,7 @@ class TensorboardVecEnv(VecEnvWrapper):
         obs, rews, news, infos = self.venv.step_wait()
         for info in infos:
             maybeepinfo = info.get('episode')
-            if maybeepinfo: tboard.add('total_reward', maybeepinfo[self.reward_key])
+            if maybeepinfo: tboard.add('Stats/TotalReward', maybeepinfo[self.reward_key])
 
         return obs, rews, news, infos
 

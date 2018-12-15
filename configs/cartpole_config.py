@@ -59,7 +59,7 @@ class CartPoleConfig(EnvConfiguration):
 
         else:
             venv = SubprocVecEnv([self.make_env_fn(i, summary_path) for i in range(self.parameters.num_env)])
-            venv = TensorboardVecEnv(venv, summary_path)
+            venv = TensorboardVecEnv(venv)
             venv = VecNormalize(venv)
 
         return venv

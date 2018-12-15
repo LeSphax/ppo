@@ -54,7 +54,6 @@ class EnvConfiguration(ABC, metaclass=EnvConfigRegistration):
     def env_name(cls):
         """
         The name of the gym environment (i.e CartPole-v1)
-        !!! This is an abstract class method, implement it with the @classmethod !!!
         """
         raise NotImplementedError
 
@@ -82,7 +81,6 @@ class EnvConfiguration(ABC, metaclass=EnvConfigRegistration):
 from configs.breakout_config import *
 from configs.breakout_no_frameskip_config import *
 from configs.cartpole_config import *
-from configs.vizdoom_config import *
 from configs.random_button_config import *
 from configs.fixed_button_config import *
 from configs.fixed_button_hard_config import *

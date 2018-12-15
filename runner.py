@@ -19,7 +19,6 @@ class EnvRunner(object):
             'obs': [],
             'actions': [],
             'rewards': [],
-            'bonuses': [],
             'values': [],
             'dones': [],
             'neglogp_actions': [],
@@ -55,7 +54,7 @@ class EnvRunner(object):
             full_rewards = batch['rewards']
         else:
             full_rewards = np.zeros(np.shape(batch['rewards']))
-        if self.kwargs['use_curiosity'] and self.estimator.curiosity:
+        if self.kwargs['use_curiosity']:
             obs = flatten_venv(batch['obs'], swap=False)
             actions = flatten_venv(batch['actions'], swap=False)
             next_obs = flatten_venv(batch['next_obs'], swap=False)
@@ -64,7 +63,7 @@ class EnvRunner(object):
             bonus = unflatten_venv(bonus, np.shape(batch['rewards']))
             batch['bonuses'] = bonus
             full_rewards += bonus
-            tboard.add('Bonuses', bonus)
+            tboard.add('Stats/Bonuses', bonus)
 
         last_values = self.estimator.get_value(self.obs)
         batch['values'].append(last_values)

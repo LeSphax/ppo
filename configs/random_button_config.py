@@ -71,8 +71,6 @@ class RandomButtonConfig(EnvConfiguration):
             weights_initializer=tf.orthogonal_initializer(np.sqrt(2))
         )
 
-        inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, placeholders['actions'])), name="invloss")
-
         inverse_loss = tf.reduce_mean(tf.square(tf.subtract(inverse_logits, clipped_actions)), name="invloss")
 
         forward_encoding = tf.concat([encoder_s0, clipped_actions], 1)

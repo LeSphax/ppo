@@ -2,6 +2,7 @@ train/
 *.log
 venv/
 save/
+old_trainings/
 
 *.swp
 *.pyc

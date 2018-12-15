@@ -31,13 +31,17 @@ import matplotlib.pyplot as plt
 
 _USAGE = '''
 Usage:
-    my_ppo (<label>) (<env_name>) [--debug|--load|--nocuriosity|--norewards]
-    
+    my_ppo (<label>) (<env_name>) [options]
+        
+Required:
+    <label>                            Name of the current experiment, this will be the name of the folders containing the training results and the saved models.
+    <env_name>                         Name of the gym environment, i.e Breakout-v0 
+
 Options:
     --debug                        Tensorflow debugger
-    --load                          Load the last save with this name
+    --load                         Load the last save with this name
     --curiosity                    Activate curiosity module 
-    --rewards                       Activate rewards
+    --norewards                    Deactivate rewards
 
 '''
 options = docopt(_USAGE)
@@ -46,7 +50,7 @@ label = str(options['<label>'])
 env_name = str(options['<env_name>'])
 load = options['--load']
 rewards = not options['--norewards']
-curiosity = not options['--nocuriosity']
+curiosity = options['--curiosity']
 
 date = datetime.now().strftime("%m%d-%H%M")
 
@@ -78,7 +82,7 @@ def simulate():
     sess = tf.get_default_session()
 
     venv = config.make_vec_env(summary_path)
-    estimator = DNNAgent(venv, policy_class=DNNPolicy, value_class=DNNValue, config=config)
+    estimator = DNNAgent(venv, policy_class=DNNPolicy, value_class=DNNValue, config=config, use_curiosity=curiosity)
     saver = tf.train.Saver()
     if load:
         tf.train.Saver().restore(sess, save_path)
@@ -87,7 +91,7 @@ def simulate():
         with sess.as_default(), sess.graph.as_default():
             env = config.make_vec_env(renderer=True)
             obs = env.reset()
-            render = False
+            render = True
 
             def toggle_rendering():
                 print("Toggle rendering")
@@ -139,25 +143,27 @@ def simulate():
 
                 for train_result in train_results:
                     tboard.add(train_result, train_results[train_result])
-        infos = {k: [dic[k] for dic in training_batch['infos']] for k in training_batch['infos'][0]}
-        bonuses = training_batch['bonuses']
+        infos = {k: [dic[k] for dic in training_batch['infos'] if k in dic] for k in training_batch['infos'][0]}
 
-        fig = plt.figure()
+        if curiosity and 'distance_border' in infos:
+            bonuses = training_batch['bonuses']
 
-        plot = fig.add_subplot(111)
-        plot.scatter(infos['distance_border'], bonuses, s=1)
+            fig = plt.figure()
 
-        fig.canvas.draw()  # draw the canvas, cache the renderer
+            plot = fig.add_subplot(111)
+            plot.scatter(infos['distance_border'], bonuses, s=1)
 
-        image = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8')
-        image = image.reshape((1,) + fig.canvas.get_width_height()[::-1] + (3,))
-        tboard.add_image('plot', image)
+            fig.canvas.draw()  # draw the canvas, cache the renderer
 
-        if t % 10 == 9:
+            image = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8')
+            image = image.reshape((1,) + fig.canvas.get_width_height()[::-1] + (3,))
+            tboard.add_image('plot', image)
+
+        if t % 50 == 9:
             print("Saved model", t)
             saver.save(sess, save_path)
 
-        if t % 1 == 0:
+        if t % 5 == 0:
             print("Summary ", t * parameters.batch_size)
             tboard.save(t * parameters.batch_size)
 

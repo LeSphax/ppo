@@ -69,14 +69,14 @@ class BreakoutNoFrameskipConfig(EnvConfiguration):
     def _parameters(self):
         return {
             "seed": 1,
-            "decay": False,
+            "decay": True,
             "num_env": 8,
             "nb_steps": 128,
             "nb_epochs": 4,
             "nb_minibatch": 4,
-            "clipping": 0.1,
-            "learning_rate": 0.00025,
-            "total_timesteps": int(80e6),
+            "clipping": 0.2,
+            "learning_rate": 3e-4,
+            "total_timesteps": int(10e6),
         }
 
     @property
@@ -105,7 +105,7 @@ class BreakoutNoFrameskipConfig(EnvConfiguration):
             venv = DummyVecEnv([self.make_env_fn()])
         else:
             venv = SubprocVecEnv([self.make_env_fn(i, summary_path) for i in range(self.parameters.num_env)])
-            venv = TensorboardVecEnv(venv, summary_path)
+            venv = TensorboardVecEnv(venv)
 
         venv = VecFrameStack(venv, 4)
         return venv
