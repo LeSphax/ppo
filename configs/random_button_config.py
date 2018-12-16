@@ -12,7 +12,7 @@ from wrappers.monitor_env import MonitorEnv
 from wrappers.tensorboard_vec_env import TensorboardVecEnv
 from wrappers.vec_env.dummy_vec_env import DummyVecEnv
 from wrappers.vec_env.subproc_vec_env import SubprocVecEnv
-
+from gym.wrappers import Monitor
 
 class RandomButtonConfig(EnvConfiguration):
 
@@ -161,9 +161,9 @@ class RandomButtonConfig(EnvConfiguration):
         env.seed(self.parameters.seed + proc_idx)
         env = TimeLimit(env, max_episode_steps=100)
         env = MonitorEnv(env)
-        # if summary_path:
-        #     # Put Monitor before any wrappers that change the episode duration to get full episode in video
-        #     env = Monitor(env, directory=summary_path + "/" + str(proc_idx), resume=True)
+        if summary_path:
+            # Put Monitor before any wrappers that change the episode duration to get full episode in video
+            env = Monitor(env, directory=summary_path + "/" + str(proc_idx), resume=True)
         env = WarpFrame(env, size=16)
 
         return env
