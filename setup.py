@@ -12,7 +12,6 @@ setup(
     install_requires=[
         'docopt',
         'gym[atari,classic_control]',
-        'matplotlib',
         'numpy',
         'opencv-python',
         'six',

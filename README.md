@@ -19,6 +19,9 @@ cd ppo
 pip3 install -e .
 ```
 
+If you want to try curiosity as well you will need my `gym-ui` environments as well.
+You can see how to install it [here](https://github.com/LeSphax/gym-ui)
+
 ### Training
 
 Run the algorithm on one of the configured environments:
@@ -110,7 +113,9 @@ So I made sure that the agent could train using:
 You can see the trained agent [here](https://github.com/LeSphax/ppo/raw/master/brag/FixedButtonIntrinsic.mp4)
 
 As expected the agent does better when we add extrinsic rewards but it still learns to click the buttons when only intrinsic rewards are present.
-This is because trying to predict where the next button will appear is harder than predicting where a click will appear.
+
+It works because trying to predict where the next button will appear is harder than predicting where a click will appear,
+ so the agent is receiving intrinsic rewards when clicking the buttons.
 
 One interesting finding was the need to clip actions before feeding them to the inverse predictor:
 * In the FixedButton-v0 environment actions are clipped to 0,1 to make it impossible to click outside the screen. If the agent sends 30, 30 as an action, it will still click on position 1,1.

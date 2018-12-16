@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod, abstractproperty, ABCMeta
 from types import SimpleNamespace
+import importlib.util
+import sys
 
 registry = {}
 
@@ -81,6 +83,12 @@ class EnvConfiguration(ABC, metaclass=EnvConfigRegistration):
 from configs.breakout_config import *
 from configs.breakout_no_frameskip_config import *
 from configs.cartpole_config import *
-from configs.random_button_config import *
-from configs.fixed_button_config import *
-from configs.fixed_button_hard_config import *
+
+# Don't import gym_ui environments if the package is not installed
+package_name = 'gym_ui'
+
+spec = importlib.util.find_spec(package_name)
+if spec is not None:
+    from configs.random_button_config import *
+    from configs.fixed_button_config import *
+    from configs.fixed_button_hard_config import *

@@ -27,7 +27,6 @@ import time
 import multiprocessing
 from docopt import docopt
 import tensorflow as tf
-import matplotlib.pyplot as plt
 
 _USAGE = '''
 Usage:
