@@ -107,6 +107,8 @@ So I made sure that the agent could train using:
 
 ![alt text](https://github.com/LeSphax/ppo/raw/master/brag/FixedButtonEpisodeReward.png "FixedButton mean episodic reward")
 
+You can see the trained agent [here](https://github.com/LeSphax/ppo/raw/master/brag/FixedButtonIntrinsic.mp4)
+
 As expected the agent does better when we add extrinsic rewards but it still learns to click the buttons when only intrinsic rewards are present.
 This is because trying to predict where the next button will appear is harder than predicting where a click will appear.
 
