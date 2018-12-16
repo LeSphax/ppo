@@ -146,9 +146,9 @@ class RandomButtonConfig(EnvConfiguration):
             "nb_steps": 128,
             "nb_epochs": 4,
             "nb_minibatch": 4,
-            "clipping": 0.1,
-            "learning_rate": 0.00025,
-            "total_timesteps": int(1e6),
+            "clipping": 0.2,
+            "learning_rate": 3e-4,
+            "total_timesteps": int(100e6),
         }
 
     @property

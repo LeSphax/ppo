@@ -143,21 +143,23 @@ def simulate():
 
                 for train_result in train_results:
                     tboard.add(train_result, train_results[train_result])
-        infos = {k: [dic[k] for dic in training_batch['infos'] if k in dic] for k in training_batch['infos'][0]}
 
-        if curiosity and 'distance_border' in infos:
-            bonuses = training_batch['bonuses']
-
-            fig = plt.figure()
-
-            plot = fig.add_subplot(111)
-            plot.scatter(infos['distance_border'], bonuses, s=1)
-
-            fig.canvas.draw()  # draw the canvas, cache the renderer
-
-            image = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8')
-            image = image.reshape((1,) + fig.canvas.get_width_height()[::-1] + (3,))
-            tboard.add_image('plot', image)
+        # Code used to debug curiosity by showing the bonus given depending on the distance from the click to the button
+        # infos = {k: [dic[k] for dic in training_batch['infos'] if k in dic] for k in training_batch['infos'][0]}
+        #
+        # if curiosity and 'distance_border' in infos:
+        #     bonuses = training_batch['bonuses']
+        #
+        #     fig = plt.figure()
+        #
+        #     plot = fig.add_subplot(111)
+        #     plot.scatter(infos['distance_border'], bonuses, s=1)
+        #
+        #     fig.canvas.draw()  # draw the canvas, cache the renderer
+        #
+        #     image = np.fromstring(fig.canvas.tostring_rgb(), dtype='uint8')
+        #     image = image.reshape((1,) + fig.canvas.get_width_height()[::-1] + (3,))
+        #     tboard.add_image('plot', image)
 
         if t % 50 == 9:
             print("Saved model", t)
