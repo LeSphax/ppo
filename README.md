@@ -6,7 +6,7 @@ I later implemented [curiosity-driven exploration](https://pathak22.github.io/no
 
 ### Requirements
 
-My development environment was on Linux python3.5, tensorflow-gpu 1.9, CUDA 9.0.
+My development environment was on Ubuntu 16 with python3.5, tensorflow-gpu 1.9, CUDA 9.0.
 But it should also work with more recent versions and even without a GPU (though some environments like Breakout will be much slower)
 
 From my experience it can be difficult to run it on Windows because of openAI gym but it is possible.
